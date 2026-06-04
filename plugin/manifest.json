@@ -1,0 +1,148 @@
+{
+  "id": "todo-sync",
+  "name": "Shared To-Do",
+  "version": "1.0.0",
+  "description": "A shared household to-do list with deadlines and priority. Touch a task on the display to check it off; edits sync across every phone and screen through a small self-hosted service.",
+  "author": "homescreens-user",
+  "license": "MIT",
+  "minAppVersion": "0.18.0",
+  "moduleType": "todo-sync",
+  "category": "Personal",
+  "icon": "list-checks",
+  "permissions": ["network", "localNetwork", "secrets"],
+  "allowedDomains": ["*"],
+  "secrets": [
+    {
+      "key": "sync_token",
+      "label": "Sync token (optional)",
+      "description": "Optional shared secret. Leave blank unless you set SYNC_TOKEN on the server. If you set it here, set the identical value on the server, and vice versa.",
+      "required": false,
+      "placeholder": "leave blank for an open LAN service"
+    }
+  ],
+  "defaultConfig": {
+    "serviceUrl": "http://192.168.1.50:8787",
+    "title": "To-Do",
+    "sortBy": "smart",
+    "showCompleted": true,
+    "hideCompletedMinutes": 0,
+    "maxItems": 12,
+    "showAssignee": true,
+    "showDue": true,
+    "accentColor": "#EA580C",
+    "pollSeconds": 4,
+    "bgColor": "#1c1917",
+    "bgOpacity": 0.55,
+    "cornerRadius": 16,
+    "blur": 8
+  },
+  "defaultSize": { "w": 460, "h": 640 },
+  "defaultStyle": { "fontSize": 18 },
+  "configSchema": {
+    "type": "object",
+    "properties": {
+      "serviceUrl": {
+        "type": "string",
+        "title": "Sync service URL",
+        "description": "The address of your to-do service, including http:// and port. Use the Pi's LAN IP, not localhost (the proxy blocks loopback).",
+        "ui:widget": "text",
+        "ui:placeholder": "http://192.168.1.50:8787"
+      },
+      "title": {
+        "type": "string",
+        "title": "List title",
+        "ui:widget": "text",
+        "ui:placeholder": "To-Do"
+      },
+      "sortBy": {
+        "type": "string",
+        "title": "Sort tasks by",
+        "enum": ["smart", "due", "priority", "created", "alpha"],
+        "enumLabels": ["Smart (overdue, due, priority)", "Due date", "Priority", "Date added", "Alphabetical"],
+        "ui:widget": "select"
+      },
+      "showCompleted": {
+        "type": "boolean",
+        "title": "Show completed tasks",
+        "ui:widget": "toggle"
+      },
+      "hideCompletedMinutes": {
+        "type": "number",
+        "title": "Auto-hide completed after (minutes)",
+        "description": "0 keeps completed tasks visible until deleted. Otherwise they fade out this many minutes after being checked off.",
+        "minimum": 0,
+        "maximum": 1440,
+        "ui:widget": "slider",
+        "ui:step": 5,
+        "ui:showWhen": { "field": "showCompleted", "equals": true }
+      },
+      "maxItems": {
+        "type": "number",
+        "title": "Max tasks shown",
+        "minimum": 1,
+        "maximum": 50,
+        "ui:widget": "slider",
+        "ui:step": 1
+      },
+      "showAssignee": {
+        "type": "boolean",
+        "title": "Show who it's assigned to",
+        "ui:widget": "toggle"
+      },
+      "showDue": {
+        "type": "boolean",
+        "title": "Show due dates",
+        "ui:widget": "toggle"
+      },
+      "accentColor": {
+        "type": "string",
+        "title": "Accent color",
+        "ui:widget": "color"
+      },
+      "bgColor": {
+        "type": "string",
+        "title": "Background color",
+        "ui:widget": "color",
+        "ui:group": "Appearance"
+      },
+      "bgOpacity": {
+        "type": "number",
+        "title": "Background opacity",
+        "minimum": 0,
+        "maximum": 1,
+        "ui:widget": "slider",
+        "ui:step": 0.05,
+        "ui:group": "Appearance"
+      },
+      "cornerRadius": {
+        "type": "number",
+        "title": "Corner radius",
+        "minimum": 0,
+        "maximum": 40,
+        "ui:widget": "slider",
+        "ui:step": 1,
+        "ui:group": "Appearance"
+      },
+      "blur": {
+        "type": "number",
+        "title": "Background blur",
+        "minimum": 0,
+        "maximum": 30,
+        "ui:widget": "slider",
+        "ui:step": 1,
+        "ui:group": "Appearance"
+      },
+      "pollSeconds": {
+        "type": "number",
+        "title": "Refresh interval (seconds)",
+        "minimum": 2,
+        "maximum": 30,
+        "ui:widget": "slider",
+        "ui:step": 1
+      }
+    }
+  },
+  "exports": {
+    "component": "default"
+  }
+}

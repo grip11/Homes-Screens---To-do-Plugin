@@ -1,0 +1,16 @@
+# Runtime data — the live task list lives only on the Pi, never in git
+server/todos.json
+server/todos.json.tmp
+*.tmp
+
+# Packaging artifacts
+*.tar.gz
+*.zip
+
+# Node
+node_modules/
+npm-debug.log*
+
+# OS cruft
+.DS_Store
+Thumbs.db

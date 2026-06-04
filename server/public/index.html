@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="To-Do" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="theme-color" content="#0c0a09" />
+  <title>Shared To-Do</title>
+  <style>
+    :root {
+      --bg: #0c0a09;
+      --card: #1c1917;
+      --card-2: #292524;
+      --text: #f5f5f4;
+      --muted: #a8a29e;
+      --accent: #ea580c;
+      --high: #ef4444;
+      --med: #f59e0b;
+      --low: #22c55e;
+      --line: rgba(255,255,255,0.08);
+    }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html, body { margin: 0; background: var(--bg); color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom); }
+    .wrap { max-width: 560px; margin: 0 auto; padding: 16px 16px 120px; }
+    header { display: flex; align-items: center; justify-content: space-between; padding: 6px 2px 14px; }
+    header h1 { font-size: 26px; margin: 0; letter-spacing: -0.02em; }
+    header .count { color: var(--muted); font-size: 14px; }
+    .gear { background: none; border: none; color: var(--muted); font-size: 22px; padding: 6px; cursor: pointer; }
+
+    ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+    li { display: flex; align-items: center; gap: 12px; background: var(--card);
+      border-radius: 14px; padding: 12px 14px; border-left: 4px solid var(--med); }
+    li.done { border-left-color: transparent; opacity: 0.6; }
+    .check { flex: 0 0 auto; width: 30px; height: 30px; border-radius: 50%;
+      border: 2px solid rgba(255,255,255,0.4); background: transparent; display: grid;
+      place-items: center; cursor: pointer; }
+    .check.on { background: var(--accent); border-color: var(--accent); }
+    .check svg { display: none; }
+    .check.on svg { display: block; }
+    .body { flex: 1 1 auto; min-width: 0; cursor: pointer; }
+    .body .t { font-size: 16px; line-height: 1.3; word-break: break-word; }
+    li.done .t { text-decoration: line-through; }
+    .meta { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 5px; }
+    .tag { font-size: 12px; padding: 2px 8px; border-radius: 6px; background: var(--card-2); color: var(--muted); }
+    .tag.due { color: var(--text); }
+    .tag.overdue { background: rgba(239,68,68,0.2); color: #fca5a5; font-weight: 600; }
+    .empty { color: var(--muted); text-align: center; padding: 40px 0; }
+    .err { background: rgba(239,68,68,0.15); color: #fca5a5; border-radius: 12px;
+      padding: 10px 14px; margin-bottom: 12px; font-size: 14px; }
+
+    /* add bar */
+    .addbar { position: fixed; left: 0; right: 0; bottom: 0; background: rgba(12,10,9,0.92);
+      backdrop-filter: blur(12px); border-top: 1px solid var(--line);
+      padding: 12px 16px calc(12px + env(safe-area-inset-bottom)); }
+    .addbar .row { max-width: 560px; margin: 0 auto; display: flex; gap: 8px; }
+    input, select { font: inherit; color: var(--text); background: var(--card-2);
+      border: 1px solid var(--line); border-radius: 10px; padding: 12px; }
+    .addbar input[type=text] { flex: 1 1 auto; min-width: 0; }
+    button.primary { background: var(--accent); color: #fff; border: none; border-radius: 10px;
+      padding: 0 18px; font-size: 16px; font-weight: 600; cursor: pointer; }
+
+    /* modal */
+    .scrim { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: none;
+      align-items: flex-end; z-index: 10; }
+    .scrim.open { display: flex; }
+    .sheet { background: var(--card); width: 100%; max-width: 560px; margin: 0 auto;
+      border-radius: 18px 18px 0 0; padding: 18px 16px calc(18px + env(safe-area-inset-bottom)); }
+    .sheet h2 { margin: 0 0 14px; font-size: 18px; }
+    .field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+    .field label { font-size: 13px; color: var(--muted); }
+    .field input, .field select { width: 100%; }
+    .seg { display: flex; gap: 8px; }
+    .seg button { flex: 1; padding: 12px; border-radius: 10px; border: 1px solid var(--line);
+      background: var(--card-2); color: var(--text); font: inherit; cursor: pointer; }
+    .seg button[data-p=high].sel { background: var(--high); border-color: var(--high); color:#fff; }
+    .seg button[data-p=med].sel  { background: var(--med);  border-color: var(--med);  color:#000; }
+    .seg button[data-p=low].sel  { background: var(--low);  border-color: var(--low);  color:#000; }
+    .sheet .actions { display: flex; gap: 8px; margin-top: 6px; }
+    .sheet .actions .primary { flex: 1; padding: 14px; }
+    button.danger { background: none; border: 1px solid rgba(239,68,68,0.5); color: #fca5a5;
+      border-radius: 10px; padding: 14px 16px; font: inherit; cursor: pointer; }
+    button.ghost { background: var(--card-2); border: none; color: var(--text);
+      border-radius: 10px; padding: 14px 16px; font: inherit; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1 id="title">To-Do</h1>
+      <div style="display:flex;align-items:center;gap:10px">
+        <span class="count" id="count"></span>
+        <button class="gear" id="settingsBtn" aria-label="Settings">&#9881;</button>
+      </div>
+    </header>
+    <div id="err" class="err" style="display:none"></div>
+    <ul id="list"></ul>
+    <div class="empty" id="empty" style="display:none">No tasks yet. Add one below.</div>
+  </div>
+
+  <!-- quick add -->
+  <div class="addbar">
+    <div class="row">
+      <input type="text" id="newText" placeholder="Add a task&hellip;" enterkeyhint="done" />
+      <button class="primary" id="addBtn">Add</button>
+    </div>
+  </div>
+
+  <!-- edit / detail sheet -->
+  <div class="scrim" id="scrim">
+    <div class="sheet">
+      <h2 id="sheetTitle">Edit task</h2>
+      <div class="field">
+        <label>Task</label>
+        <input type="text" id="fText" />
+      </div>
+      <div class="field">
+        <label>Priority</label>
+        <div class="seg" id="fPriority">
+          <button type="button" data-p="high">High</button>
+          <button type="button" data-p="med">Medium</button>
+          <button type="button" data-p="low">Low</button>
+        </div>
+      </div>
+      <div class="field">
+        <label>Due date</label>
+        <input type="date" id="fDue" />
+      </div>
+      <div class="field">
+        <label>Assigned to</label>
+        <input type="text" id="fAssignee" placeholder="e.g. Me / partner's name" list="people" />
+        <datalist id="people"></datalist>
+      </div>
+      <div class="actions">
+        <button class="ghost" id="cancelBtn">Cancel</button>
+        <button class="danger" id="deleteBtn">Delete</button>
+        <button class="primary" id="saveBtn">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- settings sheet -->
+  <div class="scrim" id="settingsScrim">
+    <div class="sheet">
+      <h2>Settings</h2>
+      <div class="field">
+        <label>Sync token (only if the server requires one)</label>
+        <input type="text" id="tokenInput" placeholder="leave blank if open" autocapitalize="off" autocorrect="off" />
+      </div>
+      <div class="actions">
+        <button class="ghost" id="settingsCancel">Close</button>
+        <button class="primary" id="settingsSave">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    var $ = function (id) { return document.getElementById(id); };
+    var PRIORITIES = ["high", "med", "low"];
+    var token = localStorage.getItem("todoSyncToken") || "";
+    var people = JSON.parse(localStorage.getItem("todoPeople") || "[]");
+    var editing = null;     // current todo id, or null for new
+    var pendingPriority = "med";
+    var cache = [];
+
+    function headers(extra) {
+      var h = Object.assign({ "Content-Type": "application/json" }, extra || {});
+      if (token) h["Authorization"] = "Bearer " + token;
+      return h;
+    }
+
+    function api(path, opts) {
+      opts = opts || {};
+      opts.headers = headers(opts.headers);
+      return fetch(path, opts).then(function (r) {
+        if (r.status === 401) throw new Error("Unauthorized — check your sync token in settings.");
+        if (!r.ok) throw new Error("Request failed (" + r.status + ")");
+        return r.status === 204 ? null : r.json();
+      });
+    }
+
+    function todayStr() {
+      var d = new Date();
+      return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+    }
+    function isOverdue(t) { return !t.completed && t.due && t.due < todayStr(); }
+    function dueLabel(due) {
+      if (!due) return "";
+      var today = todayStr();
+      if (due === today) return "Today";
+      var tm = new Date(); tm.setDate(tm.getDate() + 1);
+      var tmStr = tm.getFullYear() + "-" + String(tm.getMonth() + 1).padStart(2, "0") + "-" + String(tm.getDate()).padStart(2, "0");
+      if (due === tmStr) return "Tomorrow";
+      var d = new Date(due + "T00:00:00");
+      var m = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+      return m[d.getMonth()] + " " + d.getDate();
+    }
+    var prank = { high: 0, med: 1, low: 2 };
+    function sortTodos(a, b) {
+      if (a.completed !== b.completed) return a.completed ? 1 : -1;
+      if (a.completed && b.completed) return (b.completedAt || "").localeCompare(a.completedAt || "");
+      var ao = isOverdue(a) ? 0 : 1, bo = isOverdue(b) ? 0 : 1;
+      if (ao !== bo) return ao - bo;
+      var ad = a.due || "9999-99-99", bd = b.due || "9999-99-99";
+      if (ad !== bd) return ad.localeCompare(bd);
+      if (prank[a.priority] !== prank[b.priority]) return prank[a.priority] - prank[b.priority];
+      return (a.createdAt || "").localeCompare(b.createdAt || "");
+    }
+
+    function render(todos) {
+      cache = todos;
+      var list = $("list");
+      list.innerHTML = "";
+      var sorted = todos.slice().sort(sortTodos);
+      var remaining = todos.filter(function (t) { return !t.completed; }).length;
+      $("count").textContent = remaining + " left";
+      $("empty").style.display = todos.length ? "none" : "block";
+
+      // refresh people datalist
+      var dl = $("people"); dl.innerHTML = "";
+      people.forEach(function (p) { var o = document.createElement("option"); o.value = p; dl.appendChild(o); });
+
+      sorted.forEach(function (t) {
+        var li = document.createElement("li");
+        if (t.completed) li.className = "done";
+        li.style.borderLeftColor = t.completed ? "transparent"
+          : (t.priority === "high" ? "var(--high)" : t.priority === "low" ? "var(--low)" : "var(--med)");
+
+        var check = document.createElement("button");
+        check.className = "check" + (t.completed ? " on" : "");
+        check.setAttribute("aria-label", t.completed ? "Mark not done" : "Mark done");
+        check.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+        check.onclick = function (e) { e.stopPropagation(); toggle(t); };
+
+        var body = document.createElement("div");
+        body.className = "body";
+        var tEl = document.createElement("div"); tEl.className = "t"; tEl.textContent = t.text;
+        body.appendChild(tEl);
+        var meta = document.createElement("div"); meta.className = "meta";
+        if (t.due) {
+          var d = document.createElement("span");
+          d.className = "tag due" + (isOverdue(t) ? " overdue" : "");
+          d.textContent = dueLabel(t.due);
+          meta.appendChild(d);
+        }
+        if (t.assignee) {
+          var a = document.createElement("span"); a.className = "tag"; a.textContent = t.assignee;
+          meta.appendChild(a);
+        }
+        if (meta.children.length) body.appendChild(meta);
+        body.onclick = function () { openEdit(t); };
+
+        li.appendChild(check); li.appendChild(body);
+        list.appendChild(li);
+      });
+    }
+
+    function load() {
+      api("/api/todos").then(function (data) {
+        $("err").style.display = "none";
+        render(data.todos || []);
+      }).catch(function (e) {
+        $("err").textContent = e.message;
+        $("err").style.display = "block";
+      });
+    }
+
+    function toggle(t) {
+      // optimistic
+      t.completed = !t.completed;
+      render(cache);
+      api("/api/todos/" + encodeURIComponent(t.id), {
+        method: "PATCH", body: JSON.stringify({ completed: t.completed })
+      }).then(load).catch(function (e) {
+        t.completed = !t.completed; render(cache);
+        $("err").textContent = e.message; $("err").style.display = "block";
+      });
+    }
+
+    function rememberPerson(name) {
+      name = (name || "").trim();
+      if (name && people.indexOf(name) === -1) {
+        people.push(name);
+        localStorage.setItem("todoPeople", JSON.stringify(people));
+      }
+    }
+
+    // quick add
+    function quickAdd() {
+      var text = $("newText").value.trim();
+      if (!text) return;
+      $("newText").value = "";
+      api("/api/todos", { method: "POST", body: JSON.stringify({ text: text, priority: "med" }) })
+        .then(load)
+        .catch(function (e) { $("err").textContent = e.message; $("err").style.display = "block"; });
+    }
+    $("addBtn").onclick = quickAdd;
+    $("newText").addEventListener("keydown", function (e) { if (e.key === "Enter") quickAdd(); });
+
+    // edit sheet
+    function setPriorityUI(p) {
+      pendingPriority = p;
+      Array.prototype.forEach.call($("fPriority").children, function (btn) {
+        btn.classList.toggle("sel", btn.getAttribute("data-p") === p);
+      });
+    }
+    Array.prototype.forEach.call($("fPriority").children, function (btn) {
+      btn.onclick = function () { setPriorityUI(btn.getAttribute("data-p")); };
+    });
+
+    function openEdit(t) {
+      editing = t.id;
+      $("sheetTitle").textContent = "Edit task";
+      $("fText").value = t.text || "";
+      $("fDue").value = t.due || "";
+      $("fAssignee").value = t.assignee || "";
+      setPriorityUI(t.priority || "med");
+      $("deleteBtn").style.display = "block";
+      $("scrim").classList.add("open");
+    }
+    function closeEdit() { $("scrim").classList.remove("open"); editing = null; }
+
+    $("cancelBtn").onclick = closeEdit;
+    $("scrim").addEventListener("click", function (e) { if (e.target === $("scrim")) closeEdit(); });
+
+    $("saveBtn").onclick = function () {
+      var patch = {
+        text: $("fText").value.trim(),
+        priority: pendingPriority,
+        due: $("fDue").value || null,
+        assignee: $("fAssignee").value.trim(),
+      };
+      if (!patch.text) return;
+      rememberPerson(patch.assignee);
+      var p = editing
+        ? api("/api/todos/" + encodeURIComponent(editing), { method: "PATCH", body: JSON.stringify(patch) })
+        : api("/api/todos", { method: "POST", body: JSON.stringify(patch) });
+      p.then(function () { closeEdit(); load(); })
+       .catch(function (e) { $("err").textContent = e.message; $("err").style.display = "block"; });
+    };
+
+    $("deleteBtn").onclick = function () {
+      if (!editing) return;
+      api("/api/todos/" + encodeURIComponent(editing), { method: "DELETE" })
+        .then(function () { closeEdit(); load(); })
+        .catch(function (e) { $("err").textContent = e.message; $("err").style.display = "block"; });
+    };
+
+    // settings
+    $("settingsBtn").onclick = function () {
+      $("tokenInput").value = token;
+      $("settingsScrim").classList.add("open");
+    };
+    $("settingsCancel").onclick = function () { $("settingsScrim").classList.remove("open"); };
+    $("settingsScrim").addEventListener("click", function (e) {
+      if (e.target === $("settingsScrim")) $("settingsScrim").classList.remove("open");
+    });
+    $("settingsSave").onclick = function () {
+      token = $("tokenInput").value.trim();
+      localStorage.setItem("todoSyncToken", token);
+      $("settingsScrim").classList.remove("open");
+      load();
+    };
+
+    // boot + poll
+    load();
+    setInterval(load, 4000);
+    // reload when the app comes back to foreground
+    document.addEventListener("visibilitychange", function () { if (!document.hidden) load(); });
+  </script>
+</body>
+</html>
