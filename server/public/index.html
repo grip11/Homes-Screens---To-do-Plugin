@@ -32,6 +32,13 @@
     header .count { color: var(--muted); font-size: 14px; }
     .gear { background: none; border: none; color: var(--muted); font-size: 22px; padding: 6px; cursor: pointer; }
 
+    /* tabs */
+    .tabs { display: flex; gap: 8px; padding: 0 2px 14px; }
+    .tab { flex: 1; padding: 11px; border-radius: 11px; border: 1px solid var(--line);
+      background: var(--card); color: var(--muted); font: inherit; font-size: 14px;
+      font-weight: 600; cursor: pointer; transition: background 120ms ease, color 120ms ease; }
+    .tab.sel { background: var(--card-2); color: var(--text); border-color: transparent; }
+
     ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
     li { display: flex; align-items: center; gap: 12px; background: var(--card);
       border-radius: 14px; padding: 12px 14px; border-left: 4px solid var(--med); }
@@ -49,6 +56,7 @@
     .tag { font-size: 12px; padding: 2px 8px; border-radius: 6px; background: var(--card-2); color: var(--muted); }
     .tag.due { color: var(--text); }
     .tag.overdue { background: rgba(239,68,68,0.2); color: #fca5a5; font-weight: 600; }
+    .tag.done-at { color: var(--muted); }
     .empty { color: var(--muted); text-align: center; padding: 40px 0; }
     .err { background: rgba(239,68,68,0.15); color: #fca5a5; border-radius: 12px;
       padding: 10px 14px; margin-bottom: 12px; font-size: 14px; }
@@ -97,6 +105,10 @@
         <button class="gear" id="settingsBtn" aria-label="Settings">&#9881;</button>
       </div>
     </header>
+    <div class="tabs" id="tabs">
+      <button class="tab sel" data-view="active" id="tabActive">Active</button>
+      <button class="tab" data-view="completed" id="tabCompleted">Completed</button>
+    </div>
     <div id="err" class="err" style="display:none"></div>
     <ul id="list"></ul>
     <div class="empty" id="empty" style="display:none">No tasks yet. Add one below.</div>
@@ -166,6 +178,7 @@
     var editing = null;     // current todo id, or null for new
     var pendingPriority = "med";
     var cache = [];
+    var view = "active";    // "active" | "completed"
 
     function headers(extra) {
       var h = Object.assign({ "Content-Type": "application/json" }, extra || {});
@@ -199,10 +212,18 @@
       var m = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
       return m[d.getMonth()] + " " + d.getDate();
     }
+    // "Done 3:42 PM" — time of day a task was checked off (it's always today's)
+    function doneLabel(iso) {
+      if (!iso) return "Done";
+      var d = new Date(iso);
+      var h = d.getHours();
+      var mm = String(d.getMinutes()).padStart(2, "0");
+      var ampm = h >= 12 ? "PM" : "AM";
+      h = h % 12; if (h === 0) h = 12;
+      return "Done " + h + ":" + mm + " " + ampm;
+    }
     var prank = { high: 0, med: 1, low: 2 };
-    function sortTodos(a, b) {
-      if (a.completed !== b.completed) return a.completed ? 1 : -1;
-      if (a.completed && b.completed) return (b.completedAt || "").localeCompare(a.completedAt || "");
+    function sortActive(a, b) {
       var ao = isOverdue(a) ? 0 : 1, bo = isOverdue(b) ? 0 : 1;
       if (ao !== bo) return ao - bo;
       var ad = a.due || "9999-99-99", bd = b.due || "9999-99-99";
@@ -210,21 +231,50 @@
       if (prank[a.priority] !== prank[b.priority]) return prank[a.priority] - prank[b.priority];
       return (a.createdAt || "").localeCompare(b.createdAt || "");
     }
+    // most recently completed first
+    function sortCompleted(a, b) {
+      return (b.completedAt || "").localeCompare(a.completedAt || "");
+    }
+
+    function selectTab(v) {
+      view = v;
+      $("tabActive").classList.toggle("sel", v === "active");
+      $("tabCompleted").classList.toggle("sel", v === "completed");
+    }
+    $("tabActive").onclick = function () { selectTab("active"); render(cache); };
+    $("tabCompleted").onclick = function () { selectTab("completed"); render(cache); };
 
     function render(todos) {
       cache = todos;
       var list = $("list");
       list.innerHTML = "";
-      var sorted = todos.slice().sort(sortTodos);
-      var remaining = todos.filter(function (t) { return !t.completed; }).length;
-      $("count").textContent = remaining + " left";
-      $("empty").style.display = todos.length ? "none" : "block";
+
+      var active = todos.filter(function (t) { return !t.completed; });
+      var completed = todos.filter(function (t) { return t.completed; });
+
+      // header + tab counts
+      $("count").textContent = active.length + " left";
+      $("tabActive").textContent = "Active" + (active.length ? " (" + active.length + ")" : "");
+      $("tabCompleted").textContent = "Completed" + (completed.length ? " (" + completed.length + ")" : "");
+
+      var rows = view === "active"
+        ? active.slice().sort(sortActive)
+        : completed.slice().sort(sortCompleted);
+
+      if (!rows.length) {
+        $("empty").style.display = "block";
+        $("empty").textContent = view === "active"
+          ? "No active tasks. Add one below."
+          : "Nothing completed today.";
+      } else {
+        $("empty").style.display = "none";
+      }
 
       // refresh people datalist
       var dl = $("people"); dl.innerHTML = "";
       people.forEach(function (p) { var o = document.createElement("option"); o.value = p; dl.appendChild(o); });
 
-      sorted.forEach(function (t) {
+      rows.forEach(function (t) {
         var li = document.createElement("li");
         if (t.completed) li.className = "done";
         li.style.borderLeftColor = t.completed ? "transparent"
@@ -232,7 +282,7 @@
 
         var check = document.createElement("button");
         check.className = "check" + (t.completed ? " on" : "");
-        check.setAttribute("aria-label", t.completed ? "Mark not done" : "Mark done");
+        check.setAttribute("aria-label", t.completed ? "Restore task" : "Mark done");
         check.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>';
         check.onclick = function (e) { e.stopPropagation(); toggle(t); };
 
@@ -240,19 +290,37 @@
         body.className = "body";
         var tEl = document.createElement("div"); tEl.className = "t"; tEl.textContent = t.text;
         body.appendChild(tEl);
+
         var meta = document.createElement("div"); meta.className = "meta";
-        if (t.due) {
-          var d = document.createElement("span");
-          d.className = "tag due" + (isOverdue(t) ? " overdue" : "");
-          d.textContent = dueLabel(t.due);
-          meta.appendChild(d);
-        }
-        if (t.assignee) {
-          var a = document.createElement("span"); a.className = "tag"; a.textContent = t.assignee;
-          meta.appendChild(a);
+        if (t.completed) {
+          var c = document.createElement("span");
+          c.className = "tag done-at";
+          c.textContent = doneLabel(t.completedAt);
+          meta.appendChild(c);
+          if (t.assignee) {
+            var ca = document.createElement("span"); ca.className = "tag"; ca.textContent = t.assignee;
+            meta.appendChild(ca);
+          }
+        } else {
+          if (t.due) {
+            var d = document.createElement("span");
+            d.className = "tag due" + (isOverdue(t) ? " overdue" : "");
+            d.textContent = dueLabel(t.due);
+            meta.appendChild(d);
+          }
+          if (t.assignee) {
+            var a = document.createElement("span"); a.className = "tag"; a.textContent = t.assignee;
+            meta.appendChild(a);
+          }
         }
         if (meta.children.length) body.appendChild(meta);
-        body.onclick = function () { openEdit(t); };
+
+        // Active: tap body to edit. Completed: tap anywhere to restore.
+        if (t.completed) {
+          body.onclick = function () { toggle(t); };
+        } else {
+          body.onclick = function () { openEdit(t); };
+        }
 
         li.appendChild(check); li.appendChild(body);
         list.appendChild(li);
@@ -270,13 +338,17 @@
     }
 
     function toggle(t) {
-      // optimistic
+      // optimistic — also set completedAt so the "Done …" label is right
+      // immediately and the row lands in the correct tab without a round-trip.
+      var prevCompleted = t.completed;
+      var prevAt = t.completedAt;
       t.completed = !t.completed;
+      t.completedAt = t.completed ? new Date().toISOString() : null;
       render(cache);
       api("/api/todos/" + encodeURIComponent(t.id), {
         method: "PATCH", body: JSON.stringify({ completed: t.completed })
       }).then(load).catch(function (e) {
-        t.completed = !t.completed; render(cache);
+        t.completed = prevCompleted; t.completedAt = prevAt; render(cache);
         $("err").textContent = e.message; $("err").style.display = "block";
       });
     }
@@ -295,7 +367,7 @@
       if (!text) return;
       $("newText").value = "";
       api("/api/todos", { method: "POST", body: JSON.stringify({ text: text, priority: "med" }) })
-        .then(load)
+        .then(function () { selectTab("active"); load(); })
         .catch(function (e) { $("err").textContent = e.message; $("err").style.display = "block"; });
     }
     $("addBtn").onclick = quickAdd;

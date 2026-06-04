@@ -14,6 +14,12 @@
  *                 "Authorization: Bearer <token>". Leave unset for an open
  *                 service on your home LAN. If you set it here, set the same
  *                 value as the plugin's sync_token secret and in the phone app.
+ *
+ * Completed-task lifecycle:
+ *     A checked-off task lingers for the rest of the local day so you can see
+ *     what got done (and restore it if you tapped it by mistake). At local
+ *     midnight it is purged. "Local" means this machine's clock/timezone, so
+ *     make sure the Pi's timezone is right (check with `timedatectl`).
  */
 
 import http from "node:http";
@@ -64,6 +70,36 @@ function persist() {
 
 function nowIso() {
   return new Date().toISOString();
+}
+
+// Local calendar day (YYYY-MM-DD) for a Date or ISO string, in this machine's
+// timezone. Used to decide whether a completed task is still "today's".
+function localDay(d) {
+  const dt = d instanceof Date ? d : new Date(d);
+  return (
+    dt.getFullYear() +
+    "-" +
+    String(dt.getMonth() + 1).padStart(2, "0") +
+    "-" +
+    String(dt.getDate()).padStart(2, "0")
+  );
+}
+
+// Drop completed tasks that were finished on an earlier local day. Returns
+// true if anything was removed (so the caller knows to persist). Active tasks
+// and tasks completed today are always kept. A completed task missing its
+// completedAt is treated as "today" so it is never silently lost.
+function sweepCompleted() {
+  const today = localDay(new Date());
+  const before = state.todos.length;
+  state.todos = state.todos.filter(
+    (t) => !t.completed || !t.completedAt || localDay(t.completedAt) === today
+  );
+  if (state.todos.length !== before) {
+    state.rev++;
+    return true;
+  }
+  return false;
 }
 
 function normalizePriority(p) {
@@ -186,6 +222,9 @@ const server = http.createServer(async (req, res) => {
     try {
       // GET /api/todos
       if (path === "/api/todos" && req.method === "GET") {
+        // Purge yesterday's completed tasks before serving so every device
+        // converges on the same "today only" completed list.
+        if (sweepCompleted()) await persist();
         return send(res, 200, state);
       }
       // POST /api/todos
@@ -233,10 +272,23 @@ const server = http.createServer(async (req, res) => {
 });
 
 await loadState();
+// Sweep once at boot (covers a restart that happens after midnight) ...
+if (sweepCompleted()) await persist();
+// ... and periodically, so an idle list still clears shortly after midnight
+// even if no device polls it. Five minutes is plenty for a wall display.
+setInterval(async () => {
+  try {
+    if (sweepCompleted()) await persist();
+  } catch (e) {
+    console.error("[todo] periodic sweep failed:", e.message);
+  }
+}, 5 * 60 * 1000).unref?.();
+
 server.listen(PORT, () => {
   console.log(`Shared To-Do service listening on http://0.0.0.0:${PORT}`);
   console.log(`  Phone app:   open http://<this-pi-ip>:${PORT}/ on each phone`);
   console.log(`  Plugin URL:  set the module's "Sync service URL" to http://<this-pi-ip>:${PORT}`);
   console.log(`  Auth:        ${TOKEN ? "token required" : "open (no token)"}`);
   console.log(`  Data file:   ${DATA_FILE}`);
+  console.log(`  Completed:   linger until local midnight (${localDay(new Date())} today)`);
 });
