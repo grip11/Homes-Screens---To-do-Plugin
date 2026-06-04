@@ -162,6 +162,9 @@
     var accent = config.accentColor || "#EA580C";
     var serviceUrl = config.serviceUrl || "";
     var pollMs = Math.max(2, Number(config.pollSeconds) || 4) * 1000;
+    // Base text size in px; every label inside is sized in `em`, so this scales
+    // the whole module proportionally. Clamped to the slider's range.
+    var fontSize = Math.min(36, Math.max(12, Number(config.fontSize) || 18));
 
     var stateTodos = useState([]);
     var todos = stateTodos[0];
@@ -297,6 +300,7 @@
           overflow: "hidden",
           boxSizing: "border-box",
           padding: 16,
+          fontSize: fontSize + "px",
           borderRadius: config.cornerRadius != null ? config.cornerRadius : 16,
           backgroundColor: hexToRgba(config.bgColor || "#1c1917", config.bgOpacity != null ? config.bgOpacity : 0.55),
           backdropFilter: config.blur ? "blur(" + config.blur + "px)" : undefined,

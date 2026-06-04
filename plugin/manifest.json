@@ -1,7 +1,7 @@
 {
   "id": "todo-sync",
   "name": "Shared To-Do",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "A shared household to-do list with deadlines and priority. Touch a task on the display to check it off; edits sync across every phone and screen through a small self-hosted service.",
   "author": "homescreens-user",
   "license": "MIT",
@@ -23,6 +23,7 @@
   "defaultConfig": {
     "serviceUrl": "http://192.168.1.50:8787",
     "title": "To-Do",
+    "fontSize": 18,
     "sortBy": "smart",
     "showCompleted": true,
     "hideCompletedMinutes": 0,
@@ -53,6 +54,15 @@
         "title": "List title",
         "ui:widget": "text",
         "ui:placeholder": "To-Do"
+      },
+      "fontSize": {
+        "type": "number",
+        "title": "Text size",
+        "description": "Base text size in pixels. The title, tasks, and tags all scale relative to this.",
+        "minimum": 12,
+        "maximum": 36,
+        "ui:widget": "slider",
+        "ui:step": 1
       },
       "sortBy": {
         "type": "string",
